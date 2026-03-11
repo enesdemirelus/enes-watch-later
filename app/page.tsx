@@ -8,6 +8,7 @@ interface Content {
   id: string;
   url: string;
   type: string;
+  isWatched: boolean;
 }
 
 interface OEmbed {
@@ -16,7 +17,13 @@ interface OEmbed {
   author_name: string;
 }
 
-function YoutubeCard({ content }: { content: Content }) {
+function YoutubeCard({
+  content,
+  onToggleWatched,
+}: {
+  content: Content;
+  onToggleWatched: (id: string, current: boolean) => void;
+}) {
   const [meta, setMeta] = useState<OEmbed | null>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -40,48 +47,104 @@ function YoutubeCard({ content }: { content: Content }) {
   }
 
   return (
-    <a
-      href={content.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ textDecoration: "none", display: "block" }}
+    <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div
-        style={{
-          aspectRatio: "16 / 9",
-          borderRadius: 8,
-          overflow: "hidden",
-          position: "relative",
-          transition: "opacity 0.15s ease",
-          opacity: hovered ? 0.85 : 1,
-        }}
-      >
-        <img
-          src={meta.thumbnail_url}
-          alt={meta.title}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
+      {/* Thumbnail */}
+      <div style={{ position: "relative", borderRadius: 8, overflow: "hidden" }}>
+        <a
+          href={content.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "none", display: "block" }}
+        >
+          <div style={{ aspectRatio: "16 / 9" }}>
+            <img
+              src={meta.thumbnail_url}
+              alt={meta.title}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+                transition: "transform 0.2s ease",
+                transform: hovered ? "scale(1.03)" : "scale(1)",
+                filter: content.isWatched ? "brightness(0.4)" : "none",
+              }}
+            />
+          </div>
+        </a>
+
+        {/* Hover overlay with toggle */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: hovered ? 1 : 0,
+            transition: "opacity 0.2s ease",
+            pointerEvents: "none",
+          }}
+        >
+          <button
+            onClick={() => onToggleWatched(content.id, content.isWatched)}
+            style={{
+              padding: "7px 16px",
+              borderRadius: 6,
+              border: "none",
+              backgroundColor: content.isWatched ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.92)",
+              color: content.isWatched ? "#fff" : "#111",
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: "pointer",
+              backdropFilter: "blur(6px)",
+              letterSpacing: "0.2px",
+              transition: "background-color 0.15s ease",
+              pointerEvents: "auto",
+            }}
+          >
+            {content.isWatched ? "↩️ unmark" : "👁️ mark as watched"}
+          </button>
+        </div>
+
+        {/* Persistent watched indicator */}
+        {content.isWatched && (
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 8,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: "#2f9e44",
+              boxShadow: "0 0 0 2px rgba(47,158,68,0.3)",
+            }}
+          />
+        )}
       </div>
+
+      {/* Info */}
       <Box mt={10}>
         <Text
           fw={600}
           size="sm"
           lineClamp={2}
           style={{
-            color: hovered ? "#e03131" : "#e8e8e8",
+            color: content.isWatched ? "#aaa" : "#111",
             lineHeight: 1.4,
-            transition: "color 0.15s ease",
           }}
         >
           {meta.title}
         </Text>
-        <Text size="xs" mt={4} style={{ color: "#666" }}>
+        <Text size="xs" mt={4} style={{ color: "#888" }}>
           {meta.author_name}
         </Text>
       </Box>
-    </a>
+    </div>
   );
 }
 
@@ -122,22 +185,30 @@ export default function Page() {
     setLoading(false);
   }
 
+  async function handleToggleWatched(id: string, current: boolean) {
+    // Optimistic update
+    setContents((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, isWatched: !current } : c))
+    );
+    await axios.patch("/api/contents", { id, isWatched: !current });
+  }
+
   return (
-    <div style={{ backgroundColor: "#0f0f0f", minHeight: "100vh" }}>
+    <div style={{ backgroundColor: "#f5f5f5", minHeight: "100vh" }}>
       {/* Header */}
       <div
         style={{
-          borderBottom: "1px solid #1f1f1f",
+          borderBottom: "1px solid #e5e5e5",
           padding: "16px 0",
           position: "sticky",
           top: 0,
-          backgroundColor: "#0f0f0f",
+          backgroundColor: "#f5f5f5",
           zIndex: 10,
         }}
       >
         <Container size="lg">
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 18, letterSpacing: "-0.3px", whiteSpace: "nowrap" }}>
+            <span style={{ color: "#111", fontWeight: 700, fontSize: 18, letterSpacing: "-0.3px", whiteSpace: "nowrap" }}>
               enes watch later<span style={{ color: "#e03131" }}>.</span>
             </span>
             <div style={{ flex: 1, display: "flex", gap: 8 }}>
@@ -150,9 +221,9 @@ export default function Page() {
                 style={{ flex: 1, maxWidth: 480 }}
                 styles={{
                   input: {
-                    backgroundColor: "#1a1a1a",
-                    border: `1px solid ${error ? "#e03131" : "#2a2a2a"}`,
-                    color: "#e8e8e8",
+                    backgroundColor: "#fff",
+                    border: `1px solid ${error ? "#e03131" : "#ddd"}`,
+                    color: "#111",
                     fontSize: 13,
                   },
                 }}
@@ -175,15 +246,17 @@ export default function Page() {
       <Container size="lg" py={36}>
         {contents.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <Text style={{ color: "#333", fontSize: 15 }}>
+            <Text style={{ color: "#aaa", fontSize: 15 }}>
               No videos yet. Paste a YouTube URL above to get started.
             </Text>
           </div>
         ) : (
           <SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 4 }} spacing="xl">
-            {contents.map((c) => (
-              <YoutubeCard key={c.id} content={c} />
-            ))}
+            {[...contents]
+              .sort((a, b) => Number(a.isWatched) - Number(b.isWatched))
+              .map((c) => (
+                <YoutubeCard key={c.id} content={c} onToggleWatched={handleToggleWatched} />
+              ))}
           </SimpleGrid>
         )}
       </Container>

@@ -13,3 +13,10 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error }, { status: 500 });
   return NextResponse.json({ success: true });
 }
+
+export async function PATCH(request: Request) {
+  const { id, isWatched } = await request.json();
+  const { error } = await supabaseAdmin.from("contents").update({ isWatched }).eq("id", id);
+  if (error) return NextResponse.json({ error }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
