@@ -1,19 +1,39 @@
-import { supabaseAdmin } from "@/utils/supabase/admin";
-import { redirect } from "next/navigation";
+"use client";
 
-async function addPost() {
-  "use server";
-  const { error } = await supabaseAdmin
-    .from("contents")
-    .insert({ isWatched: false, url: "https://deneme.com", type: "youtube" });
-  console.log("error:", error);
-  redirect("/");
-}
+import { Button, TextInput } from "@mantine/core";
+import axios from "axios";
+import { useState, useEffect } from "react";
 
-export default async function Page() {
+export default function Page() {
+  const [contentUrl, setContentUrl] = useState("");
+  const [contents, setContents] = useState([]);
+
+  useEffect(() => {
+    axios.get("/api/contents").then((res) => setContents(res.data));
+  }, []);
+
+  async function handleClick() {
+    await axios.post("/api/contents", {
+      url: contentUrl,
+      type: "youtube",
+    });
+    setContentUrl("");
+    const res = await axios.get("/api/contents");
+    setContents(res.data);
+  }
+
   return (
-    <form action={addPost}>
-      <button type="submit">Add Post</button>
-    </form>
+    <div>
+      <TextInput
+        radius="xl"
+        placeholder="Input placeholder"
+        value={contentUrl}
+        onChange={(event) => setContentUrl(event.currentTarget.value)}
+      />
+      <Button onClick={handleClick}>Click me</Button>
+      {contents.map((c: any) => (
+        <div key={c.id}>{c.url}</div>
+      ))}
+    </div>
   );
 }
